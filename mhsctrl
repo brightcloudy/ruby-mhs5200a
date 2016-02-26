@@ -73,6 +73,20 @@ cli = Cliqr.interface do
         puts "%i.%i V" % [ampl[0,2].to_i, ampl[2,2].to_i]
       end
     end
+
+    action :atten do
+      description 'read attenuator setting'
+      handler do
+        fail StandardError, 'please specify channel' if arguments.length != 1
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+        channel_id = arguments.first
+        sp.write(":r" + channel_id + "y\n")
+        atten = sp.gets[4,1]
+        puts (atten == '1') ? "0 dB" : "20 dB"
+        sp.write(":r" + channel_id + "a\n")
+        sp.gets
+      end
+    end
   end
 
   action :set do
@@ -145,6 +159,18 @@ cli = Cliqr.interface do
         format = "%.2i%.2i" % [amplstr[0].to_i, amplstr[1].to_i]
         sp.write(":s" + channel_id + "a" + format + "\n")
         puts sp.gets
+      end
+    end
+
+    action :atten do
+      description 'set channel attenuator'
+      handler do
+        fail StandardError, 'please specify channel attenuator on/off status' if arguments.length != 2
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+        fail StandardError, 'status must be on or off' if !(['on', 'off'].include?(arguments[1]))
+
+        channel_id = arguments.first
+        sp.write(":s" + channel_id + "y%.1i\n" % (arguments[1] == 'on' ? 0 : 1))
       end
     end
   end
