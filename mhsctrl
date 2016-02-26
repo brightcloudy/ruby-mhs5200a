@@ -1,0 +1,74 @@
+#!/usr/bin/env ruby
+
+require 'serialport'
+require 'cliqr'
+sp = SerialPort.new('/dev/ttyUSB0', 57600, 8, 1, SerialPort::NONE)
+wavetypes = {"00" => "sine", "01" => "square", "02" => "triangle", "03" => "up", "04" => "down"}
+cli = Cliqr.interface do
+  name 'mhsctrl'
+  description 'MHS5200A control program'
+  version '0.0.1'
+  arguments :disable
+
+  action :read do
+    description 'reads current values'
+
+    action :freq do
+      description 'reads channel frequency'
+      handler do
+        fail StandardError, 'please specify channel' if arguments.length != 1
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+        channel_id = arguments.first
+        sp.write(":r" + channel_id + "f\n")
+        resp = sp.gets[4,10]
+        puts "%i.%i kHz" % [resp[0,5].to_i, resp[5,5].to_i]
+      end
+    end
+
+    action :wave do
+      description 'reads current waveform'
+      handler do
+        fail StandardError, 'please specify channel' if arguments.length != 1
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+
+        channel_id = arguments.first
+        sp.write(":r" + channel_id + "w\n")
+        puts wavetypes[sp.gets[4,2]]
+      end
+    end
+  end
+
+  action :set do
+    description 'write new value'
+
+    action :freq do
+      description 'writes channel frequency'
+      handler do
+        fail StandardError, 'please specify channel and frequency value in form 100.0 kHz' if arguments.length != 2
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+
+        channel_id = arguments.first
+        freqstr = arguments[1].split('.')
+        format = "%.5i%.5i" % [freqstr[0].to_i, freqstr[1].to_i*10000]
+        sp.write(":s" + channel_id + "f" + format + "\n")
+        puts sp.gets
+      end
+    end
+
+    action :wave do
+      description 'set waveform type'
+      handler do
+        fail StandardError, 'please specify channel and wave type from (sine, square, triangle, up, down)' if arguments.length != 2
+        fail StandardError, 'invalid wave type, pick from (sine, square, triangle, up, down)' if wavetypes.key(arguments[1]).nil?
+        
+        channel_id = arguments.first
+        waveval = wavetypes.key(arguments[1])
+
+        sp.write(":s" + channel_id + "w%i\n" % waveval.to_i)
+        puts sp.gets
+      end
+    end
+  end
+end
+
+cli.execute(ARGV)
