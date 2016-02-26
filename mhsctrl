@@ -13,7 +13,7 @@ cli = Cliqr.interface do
   action :read do
     description 'reads current values'
 
-    action :freq do
+    action :frequency do
       description 'reads channel frequency'
       handler do
         fail StandardError, 'please specify channel' if arguments.length != 1
@@ -25,7 +25,7 @@ cli = Cliqr.interface do
       end
     end
 
-    action :wave do
+    action :waveform do
       description 'reads current waveform'
       handler do
         fail StandardError, 'please specify channel' if arguments.length != 1
@@ -36,13 +36,50 @@ cli = Cliqr.interface do
         puts wavetypes[sp.gets[4,2]]
       end
     end
+
+    action :duty do
+      description 'reads current duty cycle'
+      handler do
+        fail StandardError, 'please specify channel' if arguments.length != 1
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+
+        channel_id = arguments.first
+        sp.write(":r" + channel_id + "d\n")
+        puts sp.gets[4,3]
+      end
+    end
+
+    action :onoff do
+      description 'read on/off status'
+      handler do
+        fail StandardError, 'please specify channel' if arguments.length != 1
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+
+        channel_id = arguments.first
+        sp.write(":r" + channel_id + "b\n")
+        puts (sp.gets[4,1] == '1' ? 'on' : 'off')
+      end
+    end
+
+    action :amplitude do
+      description 'read channel amplitude'
+      handler do
+        fail StandardError, 'please specify channel' if arguments.length != 1
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+
+        channel_id = arguments.first
+        sp.write(":r" + channel_id + "a\n")
+        ampl = sp.gets[4,4]
+        puts "%i.%i V" % [ampl[0,2].to_i, ampl[2,2].to_i]
+      end
+    end
   end
 
   action :set do
-    description 'write new value'
+    description 'set new value'
 
-    action :freq do
-      description 'writes channel frequency'
+    action :frequency do
+      description 'sets channel frequency'
       handler do
         fail StandardError, 'please specify channel and frequency value in form 100.0 kHz' if arguments.length != 2
         fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
@@ -55,16 +92,58 @@ cli = Cliqr.interface do
       end
     end
 
-    action :wave do
+    action :waveform do
       description 'set waveform type'
       handler do
         fail StandardError, 'please specify channel and wave type from (sine, square, triangle, up, down)' if arguments.length != 2
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
         fail StandardError, 'invalid wave type, pick from (sine, square, triangle, up, down)' if wavetypes.key(arguments[1]).nil?
         
         channel_id = arguments.first
         waveval = wavetypes.key(arguments[1])
 
         sp.write(":s" + channel_id + "w%i\n" % waveval.to_i)
+        puts sp.gets
+      end
+    end
+
+    action :duty do
+      description 'set duty cycle'
+      handler do
+        fail StandardError, 'please specify channel and duty cycle in form 50.0' if arguments.length != 2
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+        
+        channel_id = arguments.first
+        dutystr = arguments[1].split('.')
+        format = "%.2i%.1i" % [dutystr[0].to_i, dutystr[1].to_i]
+        sp.write(":s" + channel_id + "d" + format + "\n")
+        puts sp.gets
+      end
+    end
+
+    action :onoff do
+      description 'set channel on/off'
+      handler do
+        fail StandardError, 'please specify channel and on/off status' if arguments.length != 2
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+        fail StandardError, 'status must be on or off' if !(['on', 'off'].include?(arguments[1]))
+
+        channel_id = arguments.first
+        sp.write(":s" + channel_id + "b%.1i\n" % (arguments[1] == 'on' ? 1 : 0))
+        puts sp.gets
+      end
+    end
+
+    action :amplitude do
+      description 'set chanel amplitude'
+      handler do
+        fail StandardError, 'please specify channel and amplitude in volts in form 1.00' if arguments.length != 2
+        fail StandardError, 'channel id must be 1 or 2' if !(['1', '2'].include?(arguments.first))
+        
+        channel_id = arguments.first
+        amplstr = arguments[1].split('.')
+        format = "%.2i%.2i" % [amplstr[0].to_i, amplstr[1].to_i]
+        sp.write(":s" + channel_id + "a" + format + "\n")
         puts sp.gets
       end
     end
